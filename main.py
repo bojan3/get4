@@ -16,7 +16,7 @@ Config.set('graphics', 'height', '600')
 TABLE_SIZE = 5
 PLAYER_SYM = 1
 AI_SYM = 2
-matrix = np.zeros([5, 5])
+
 
 
 class Move:
@@ -36,6 +36,7 @@ class TicGame(Widget):
 
     def __init__(self, **kwargs):
         super(TicGame, self).__init__(**kwargs)
+        self.board = np.zeros([5, 5])
         self.init_vertical_lines()
         self.init_horizontal_lines()
         self.init_iks()
@@ -49,7 +50,7 @@ class TicGame(Widget):
         field_height = (self.height - 2 * offset_y) / TABLE_SIZE
         x = int((touch.pos[0] - offset_x) / field_width)
         y = int((touch.pos[1] - offset_y) / field_height)
-        matrix[TABLE_SIZE - 1 - y, x] = 1
+        self.board[TABLE_SIZE - 1 - y, x] = 1
         self.ai_turn()
 
     def on_size(self, *args):
@@ -57,16 +58,18 @@ class TicGame(Widget):
         self.update_horizontal_lines()
 
     def update_all(self, dt):
-        if winning_move(AI_SYM):
+        if winning_move(self.board, AI_SYM):
             print("AI WIN!")
-        elif winning_move(PLAYER_SYM):
+        elif winning_move(self.board, PLAYER_SYM):
             print("PLAYER WIN!")
         self.update_table()
 
     def ai_turn(self):
-        #x, y = random.choice(get_valid_actions())
-        x, y = get_best_action(AI_SYM)
-        matrix[x, y] = 2
+        # x, y = random.choice(get_valid_actions())
+        # x, y = get_best_action(self.board, AI_SYM)
+        x, y = minimax(self.board, 3, True)[0]
+        print('score: ', minimax(self.board, 2, True)[1])
+        self.board[x, y] = 2
 
     def init_okss(self):
         with self.canvas:
@@ -111,7 +114,7 @@ class TicGame(Widget):
     def update_table(self):
         spacing = int(self.width / TABLE_SIZE)
         h_spacing = int(self.height / TABLE_SIZE)
-        mat = np.transpose(matrix)
+        mat = np.transpose(self.board)
         for x in range(0, TABLE_SIZE):
             for y in range(0, TABLE_SIZE):
                 if mat[x, y] == 1:
@@ -149,58 +152,59 @@ class TicApp(App):
 # -----------------------AI-----------------------
 
 
-def get_best_action(piece):
+def get_best_action(board, piece):
     best_score = -9999999
     valid_actions = get_valid_actions()
     best_action = random.choice(valid_actions)
     # print(valid_actions)
     for action in valid_actions:
-        temp_matrix = matrix.copy()
-        print('matrix', temp_matrix)
+        temp_board = board.copy()
+        print('matrix', temp_board)
         x, y = action
-        temp_matrix[x, y] = piece
-        score = score_action(temp_matrix, AI_SYM)
+        temp_board[x, y] = piece
+        score = score_action(temp_board, AI_SYM)
         print(score)
         if score > best_score:
             best_score = score
             best_action = action
-
-    # print(best_action)
-    # print(best_score)
     return best_action
 
 
-def winning_move(piece):
+def winning_move(board, piece):
     # Horizontal
     for c in range(TABLE_SIZE - 3):
         for r in range(TABLE_SIZE):
-            if matrix[r][c] == piece and matrix[r][c + 1] == piece and matrix[r][c + 2] == piece and matrix[r][c + 3] == piece:
+            if board[r][c] == piece and board[r][c + 1] == piece and board[r][c + 2] == piece and board[r][
+                c + 3] == piece:
                 return True
     # Vertical
     for r in range(TABLE_SIZE - 3):
         for c in range(TABLE_SIZE):
-            if matrix[r][c] == piece and matrix[r + 1][c] == piece and matrix[r + 2][c] == piece and matrix[r + 3][c] == piece:
+            if board[r][c] == piece and board[r + 1][c] == piece and board[r + 2][c] == piece and board[r + 3][
+                c] == piece:
                 return True
     # Positive slops
-    for r in range(TABLE_SIZE-3):
-        for c in range(TABLE_SIZE-3):
-            if matrix[r][c] == piece and matrix[r+1][c+1] == piece and matrix[r+2][c+2] == piece and matrix[r+3][c+3] == piece:
+    for r in range(TABLE_SIZE - 3):
+        for c in range(TABLE_SIZE - 3):
+            if board[r][c] == piece and board[r + 1][c + 1] == piece and board[r + 2][c + 2] == piece and \
+                    board[r + 3][c + 3] == piece:
                 return True
     # Negative slops
     for c in range(TABLE_SIZE - 3):
         for r in range(3, TABLE_SIZE):
-            if matrix[r][c] == piece and matrix[r - 1][c + 1] == piece and matrix[r - 2][c + 2] == piece and matrix[r - 3][c + 3] == piece:
+            if board[r][c] == piece and board[r - 1][c + 1] == piece and board[r - 2][c + 2] == piece and \
+                    board[r - 3][c + 3] == piece:
                 return True
     return False
 
 
-def score_action(poss_matrix, piece):
+def score_action(poss_board, piece):
     score = 0
     # Horizontal
     for r in range(TABLE_SIZE):
-        row_array = [int(i) for i in list(poss_matrix[r,:])]
-        for c in range(TABLE_SIZE-3):
-            section = row_array[c:c+4]
+        row_array = [int(i) for i in list(poss_board[r, :])]
+        for c in range(TABLE_SIZE - 3):
+            section = row_array[c:c + 4]
             # score += section_score(window, piece)
             if section.count(piece) == 4:
                 score += 100
@@ -211,26 +215,26 @@ def score_action(poss_matrix, piece):
 
     # Vertical
     for c in range(TABLE_SIZE):
-        column_array = [int(i) for i in list(poss_matrix[:,c])]
-        for r in range(TABLE_SIZE-3):
-            window = column_array[r:r+4]
+        column_array = [int(i) for i in list(poss_board[:, c])]
+        for r in range(TABLE_SIZE - 3):
+            window = column_array[r:r + 4]
             score += section_score(window, piece)
-    #Postive sloped diagonal
-    for r in range(TABLE_SIZE-3):
-        for c in range(TABLE_SIZE-3):
-            window = [poss_matrix[r+i][c+i] for i in range(4)]
+    # Postive sloped diagonal
+    for r in range(TABLE_SIZE - 3):
+        for c in range(TABLE_SIZE - 3):
+            window = [poss_board[r + i][c + i] for i in range(4)]
             score += section_score(window, piece)
     # Negative sloped diagonal
-    for r in range(TABLE_SIZE-3):
-        for c in range(TABLE_SIZE-3):
-            window = [poss_matrix[r+3-i][c+i] for i in range(4)]
+    for r in range(TABLE_SIZE - 3):
+        for c in range(TABLE_SIZE - 3):
+            window = [poss_board[r + 3 - i][c + i] for i in range(4)]
             score += section_score(window, piece)
     return score
 
 
 def section_score(section, piece):
     score = 0
-    # opp_piece = PLAYER_SYM
+    opp_piece = PLAYER_SYM
     # if piece == PLAYER_SYM:
     #     opp_piece = AI_SYM
     if section.count(piece) == 4:
@@ -238,30 +242,84 @@ def section_score(section, piece):
     elif section.count(piece) == 3 and section.count(0) == 1:
         score += 10
     elif section.count(piece) == 2 and section.count(0) == 2:
-        score += .1
-    #     print('section', section)
-    #     print('piece' ,piece)
-    # elif section.count(piece) == 1 and section.count(0) == 3:
-    #     score += .01
-    #     print('section', section)
-    #     print('piece' ,piece)
-    # if window.count(opp_piece) == 3 and window.count(EMPTY) ==1:
-    #     score-=80
-    # print(score)
+        score += 1
+    elif section.count(opp_piece) == 3 and section.count(0) == 1:
+        score -= 80
     return score
 
 
-def get_valid_actions():
+def get_valid_actions(board):
     valid_actions = []
     for row in range(TABLE_SIZE):
         for col in range(TABLE_SIZE):
-            if matrix[col, row] == 0:
+            if board[col, row] == 0:
                 valid_actions.append([col, row])
     return valid_actions
 
+
+def is_terminal_node(board):
+    return winning_move(board, PLAYER_SYM) or winning_move(board, AI_SYM)
+
+
+def minimax(node, depth, maximizingPlayer):
+    valid_actions = get_valid_actions(node)
+    is_terminal = is_terminal_node(node)
+
+    if depth == 0 or is_terminal:
+        if is_terminal:
+            if winning_move(node, AI_SYM):
+                print('ai_win')
+                return None, 100000000000
+            if winning_move(node, PLAYER_SYM):
+                print('player_win')
+                return None, -100000000000
+            else:
+                print('none_win')
+                return None, 0
+        else:
+            # print('depth==0')
+            # print(node)
+            return None, score_action(node, AI_SYM)
+    # maximizingPlayer
+    if maximizingPlayer:
+        max_score = -math.inf
+        best_action = random.choice(valid_actions)
+        for action in valid_actions:
+            temp_board = node.copy()
+            x, y = action
+            temp_board[x, y] = AI_SYM
+            score = minimax(temp_board, depth-1, False)[1]
+            if score > max_score:
+                max_score = score
+                best_action = action
+        print('max', max_score)
+        return best_action, max_score
+    # minimizingPlayer
+    else:
+        min_score = math.inf
+        best_action = random.choice(valid_actions)
+        for action in valid_actions:
+            temp_board = node.copy()
+            x, y = action
+            temp_board[x, y] = PLAYER_SYM
+            score = minimax(temp_board, depth-1, True)[1]
+            if score < min_score:
+                min_score = score
+                best_action = action
+        print('min', min_score)
+        return best_action, min_score
 
 # ------------------------------------------------
 
 
 if __name__ == "__main__":
     TicApp().run()
+
+
+
+
+
+
+
+
+
